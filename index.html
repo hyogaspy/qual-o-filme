@@ -2,118 +2,148 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cinedle - Adivinhe o Filme</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #121212; color: white; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #0f0f0f; color: white; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        input { padding: 12px; width: 300px; border-radius: 5px; border: 1px solid #333; background: #1a1a1a; color: white; margin-bottom: 10px; }
+        button { padding: 12px 25px; border-radius: 5px; background: #e50914; color: white; border: none; cursor: pointer; font-weight: bold; }
         
-        input { 
-            padding: 10px; width: 300px; border-radius: 5px; border: 1px solid #444; 
-            background: #222; color: white; font-size: 16px;
-        }
-
-        button { padding: 10px 20px; border-radius: 5px; background: #e50914; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #b20710; }
-
-        .resultado-container { margin-top: 20px; display: flex; flex-direction: column; align-items: center; }
-        
-        .movie-row { display: flex; gap: 10px; margin-bottom: 10px; animation: fadeIn 0.5s; }
+        /* Estilo da Tabela de Resultados */
+        .resultado-header { display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr 2fr; gap: 10px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 5px; }
+        .movie-row { display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr 2fr; gap: 10px; margin-bottom: 10px; animation: slideIn 0.4s ease-out; }
         
         .box { 
-            width: 150px; height: 60px; border: 1px solid #444; 
-            display: flex; align-items: center; justify-content: center; 
-            background: #1e1e1e; font-weight: bold; border-radius: 4px;
-            padding: 5px; font-size: 14px;
+            background: #1e1e1e; padding: 10px; border-radius: 4px; display: flex; 
+            align-items: center; justify-content: center; font-size: 13px; text-align: center;
+            min-height: 50px; border: 1px solid #333;
         }
 
+        /* Cores de Acerto/Erro */
         .correct { background-color: #2e7d32 !important; border-color: #4caf50; }
         .wrong { background-color: #c62828 !important; border-color: #f44336; }
+        .partial { background-color: #f9a825 !important; border-color: #fbc02d; } /* Para elenco parcialmente correto */
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body>
 
+<div class="container">
     <h1>Cinedle 🎬</h1>
-    <p>Adivinhe o filme secreto do dia!</p>
+    <p>Compare as categorias para achar o filme secreto</p>
 
-    <input type="text" id="inputFilme" list="sugestoes" placeholder="Digite um filme..." oninput="buscarSugestoes()">
-    
+    <input type="text" id="inputFilme" list="sugestoes" placeholder="Digite o nome de um filme..." oninput="buscarSugestoes()">
     <datalist id="sugestoes"></datalist>
-
     <button onclick="fazerPalpite()">Chutar</button>
 
-    <div id="resultado" class="resultado-container"></div>
+    <div style="margin-top: 30px;">
+        <div class="resultado-header">
+            <div>Título</div>
+            <div>Ano</div>
+            <div>Diretor</div>
+            <div>Roteiro</div>
+            <div>Elenco</div>
+        </div>
+        <div id="listaResultados"></div>
+    </div>
+</div>
 
-    <script>
-        const API_KEY = '7b13c115c103f83a94753fd427244996'; // <--- Coloque sua chave aqui
+<script>
+    const API_KEY = '7b13c115c103f83a94753fd427244996';
+    
+    // FILME SECRETO (Aqui você define qual o filme o jogador deve adivinhar)
+    // DICA: Você pode automatizar isso no futuro para ser um filme aleatório
+    const FILME_SECRETO = {
+        id: 157336, // ID do Interstellar no TMDB
+        title: "Interestelar",
+        year: 2014,
+        director: "Christopher Nolan",
+        writer: "Jonathan Nolan",
+        cast: ["Matthew McConaughey", "Anne Hathaway", "Jessica Chastain"]
+    };
+
+    async function buscarSugestoes() {
+        const query = document.getElementById('inputFilme').value;
+        if (query.length < 3) return;
+        const resp = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR`);
+        const data = await resp.json();
+        const datalist = document.getElementById('sugestoes');
+        datalist.innerHTML = '';
+        data.results.slice(0, 6).forEach(f => {
+            const option = document.createElement('option');
+            option.value = f.title;
+            datalist.appendChild(option);
+        });
+    }
+
+    async function obterDetalhesFilme(movie_id) {
+        const resp = await fetch(`https://api.themoviedb.org/3/movie/${movie_id}?api_key=${API_KEY}&append_to_response=credits&language=pt-BR`);
+        const data = await resp.json();
         
-        // Filme que o jogador precisa acertar (Você pode sortear um depois)
-        const FILME_SECRETO = { title: "Interestelar", year: 2014 };
+        const director = data.credits.crew.find(person => person.job === 'Director')?.name || "N/A";
+        const writer = data.credits.crew.find(person => person.job === 'Screenplay' || person.job === 'Writer')?.name || "N/A";
+        const cast = data.credits.cast.slice(0, 3).map(c => c.name); // Pega os 3 principais atores
 
-        // Função que busca filmes enquanto o usuário digita
-        async function buscarSugestoes() {
-            const query = document.getElementById('inputFilme').value;
-            if (query.length < 3) return; // Só busca depois de 3 letras
+        return {
+            title: data.title,
+            year: parseInt(data.release_date.split('-')[0]),
+            director: director,
+            writer: writer,
+            cast: cast
+        };
+    }
 
-            try {
-                const url = `https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=pt-BR`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                const datalist = document.getElementById('sugestoes');
-                datalist.innerHTML = ''; // Limpa as sugestões antigas
+    async function fazerPalpite() {
+        const input = document.getElementById('inputFilme');
+        const nome = input.value;
+        if(!nome) return;
 
-                // Pega os 5 primeiros resultados
-                data.results.slice(0, 5).forEach(filme => {
-                    const option = document.createElement('option');
-                    const ano = filme.release_date ? `(${filme.release_date.split('-')[0]})` : '';
-                    option.value = filme.title; 
-                    datalist.appendChild(option);
-                });
-            } catch (err) {
-                console.error("Erro ao buscar sugestões", err);
-            }
+        const searchResp = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(nome)}&language=pt-BR`);
+        const searchData = await searchResp.json();
+        const baseFilme = searchData.results[0];
+
+        if (baseFilme) {
+            const chute = await obterDetalhesFilme(baseFilme.id);
+            input.value = '';
+            compararEExibir(chute);
         }
+    }
 
-        async function fazerPalpite() {
-            const input = document.getElementById('inputFilme');
-            const nomeFilme = input.value;
-            
-            if (!nomeFilme) return;
+    function compararEExibir(chute) {
+        const lista = document.getElementById('listaResultados');
+        const row = document.createElement('div');
+        row.className = 'movie-row';
 
-            const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(nomeFilme)}&language=pt-BR`);
-            const data = await response.json();
-            const filmeChutado = data.results[0];
+        // Lógica de Comparação
+        const cAno = chute.year === FILME_SECRETO.year ? 'correct' : 'wrong';
+        const setaAno = chute.year < FILME_SECRETO.year ? ' ⬆️' : (chute.year > FILME_SECRETO.year ? ' ⬇️' : '');
+        
+        const cDir = chute.director === FILME_SECRETO.director ? 'correct' : 'wrong';
+        const cWrit = chute.writer === FILME_SECRETO.writer ? 'correct' : 'wrong';
+        
+        // Elenco: Verde se acertar os 3, Amarelo se tiver pelo menos 1 igual
+        const atoresComuns = chute.cast.filter(ator => FILME_SECRETO.cast.includes(ator));
+        let cCast = 'wrong';
+        if (atoresComuns.length === FILME_SECRETO.cast.length) cCast = 'correct';
+        else if (atoresComuns.length > 0) cCast = 'partial';
 
-            if (filmeChutado) {
-                const anoChutado = filmeChutado.release_date ? parseInt(filmeChutado.release_date.split('-')[0]) : 0;
-                exibirResultado(filmeChutado.title, anoChutado);
-                input.value = ''; // Limpa o campo após o chute
-            }
+        row.innerHTML = `
+            <div class="box">${chute.title}</div>
+            <div class="box ${cAno}">${chute.year}${setaAno}</div>
+            <div class="box ${cDir}">${chute.director}</div>
+            <div class="box ${cWrit}">${chute.writer}</div>
+            <div class="box ${cCast}">${chute.cast.join(', ')}</div>
+        `;
+
+        lista.insertBefore(row, lista.firstChild);
+
+        if (chute.title === FILME_SECRETO.title) {
+            setTimeout(() => alert("🎉 Você mita no cinema! Acertou!"), 500);
         }
+    }
+</script>
 
-        function exibirResultado(titulo, ano) {
-            const container = document.getElementById('resultado');
-            const div = document.createElement('div');
-            div.className = 'movie-row';
-            
-            const corAno = (ano === FILME_SECRETO.year) ? 'correct' : 'wrong';
-            let seta = "";
-            if (ano < FILME_SECRETO.year) seta = " ⬆️";
-            else if (ano > FILME_SECRETO.year) seta = " ⬇️";
-
-            div.innerHTML = `
-                <div class="box">${titulo}</div>
-                <div class="box ${corAno}">${ano}${seta}</div>
-            `;
-            
-            // Adiciona o chute no topo da lista
-            container.insertBefore(div, container.firstChild);
-
-            if (titulo === FILME_SECRETO.title) {
-                alert("🎉 PARABÉNS! Você acertou o filme!");
-            }
-        }
-    </script>
 </body>
 </html>
