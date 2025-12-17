@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Cinedle - Adivinhe o Filme</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: white; }
+        .movie-row { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+        .box { width: 100px; height: 50px; border: 1px solid #444; display: flex; align-items: center; justify-content: center; }
+        .correct { background-color: #4caf50; }
+        .wrong { background-color: #f44336; }
+    </style>
+</head>
+<body>
+
+    <h1>Que filme é esse?</h1>
+    <input type="text" id="palpite" placeholder="Digite o nome do filme...">
+    <button onclick="fazerPalpite()">Chutar</button>
+
+    <div id="resultado"></div>
+
+    <script>
+        const API_KEY = 'SUA_CHAVE_AQUI'; // Coloque sua chave do TMDB aqui
+        const FILME_SECRETO = { title: "O Poderoso Chefão", year: 1972 }; // Exemplo estático
+
+        async function fazerPalpite() {
+            const nomeFilme = document.getElementById('palpite').value;
+            
+            // Busca dados do filme na API
+            const response = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${API_KEY}&query=${nomeFilme}`);
+            const data = await response.json();
+            const filmeChutado = data.results[0];
+
+            if (filmeChutado) {
+                const anoChutado = new Date(filmeChutado.release_date).getFullYear();
+                exibirResultado(filmeChutado.title, anoChutado);
+            }
+        }
+
+        function exibirResultado(titulo, ano) {
+            const div = document.createElement('div');
+            div.className = 'movie-row';
+            
+            // Lógica de comparação simplificada
+            const corAno = (ano === FILME_SECRETO.year) ? 'correct' : 'wrong';
+            const seta = (ano < FILME_SECRETO.year) ? '↑' : '↓';
+
+            div.innerHTML = `
+                <div class="box">${titulo}</div>
+                <div class="box ${corAno}">${ano} ${ano !== FILME_SECRETO.year ? seta : ''}</div>
+            `;
+            document.getElementById('resultado').appendChild(div);
+        }
+    </script>
+</body>
+</html>
